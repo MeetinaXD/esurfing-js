@@ -1,39 +1,61 @@
 ## Esurfing Login
 Author: MeetinaXD
-Last Edit: Apir 8, 2021
+
+Last Edit: Apri 9, 2021
 
 A three-party login script for `GuangDong esurfing` written by `JavaScript`
 
-## Before run
+## Requirement
 The script is running in `Node.JS`
-You need to install `Node.JS`, then install the following requirement
+
+You need to install `Node.JS` and run the following command
+
 ``` shell
 npm i colors yargs axios -S
 ```
 
 ## Usage
-The script can be run in two modes, `command-line mode` and `PATH mode`
-In `command-line mode`, you can specify your `username` and `password` in the command line.
-In `PATH mode`, you can put your username and password in `PATH`, it works better in docker.
+The script can works in two modes: `command-line mode` and `PATH mode`
 
-What's more, the script will send an activation request `every 1 min`.
-You can configure it by edit `main.js: 235`, function `setTask` receive a value as a `minute`.
+In `command-line mode`, all parameters should be offered by options.
 
+In `PATH mode`, you should define all the parameters in `PATH`. This mode is recommended when the script is run inside a docker container.
+
+By default, the script sends an activation request `every minute` to make sure the connection alive.
+You can configure it by option `-t` or PATH `ESU_INTERVAL`.
 ### `command-line MODE`
 ``` shell
-node ./main.js -u [USERNAME] -p [PASSWORD]
+node ./main.js -u [USERNAME] -p [PASSWORD] -d -t [INTERVAL]
+```
+
+**For example**
+``` shell
+node ./main.js -u 3119000000 -p 12345678 -d -t 3
 ```
 
 ### `PATH MODE`
+Configuring `username` `password` and `time interval` in `PATH`
 ``` shell
+# your student id
 export ESU_USERNAME=[USERNAME]
+# the last 6 digits of ID card number
 export ESU_PASSWORD=[PASSWORD]
+# Time interval
+export ESU_INTERVAL=[INTERVAL]
 node ./main.js
 ```
 
-### `-d`, disconnect before login
-I recommend you use this option, it maybe can avoid some problem.
-For example:
+**For example**
 ``` shell
-node ./main.js -d -u [USERNAME] -p [PASSWORD]
+export ESU_USERNAME=3119000000
+export ESU_PASSWORD=12345678
+export ESU_INTERVAL=3
+node ./main.js -d
 ```
+
+### `-t`, interval time
+Time interval of sendind two activation requests, default is `1 minute`
+
+### `-d`, disconnect before login
+Use this option to fix some unexpected problem such as the connection is still alive when the script is attempting to create a login request.
+**NEVER** use this option before the first login.

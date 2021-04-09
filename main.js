@@ -1,5 +1,5 @@
 /**
- * Esurfing AutoLogin (node)
+ * Esurfing AutoLogin (nodejs)
  * author: MeetinaXD
  * Last Edit: Apri 8, 2021.
  *
@@ -18,6 +18,7 @@ const utils = require("./utils")
 
 const configure = new utils.Config("./config.json")
 let taskid = null
+let counter = 0
 
 const argv = require('yargs')
   .option('d', {
@@ -26,6 +27,13 @@ const argv = require('yargs')
     default: 'false',
     describe: 'is disconnect first.',
     type: 'boolean'
+  })
+  .option('t', {
+    alias : 'time',
+    demand: false,
+    default: '1',
+    describe: 'activate time, default is 1 (min)',
+    type: 'number'
   })
   .option('u', {
     alias : 'username',
@@ -220,24 +228,33 @@ function setTask(sec){
 async function init(){
   let u = argv.u.trim().length?argv.u:null
   let p = argv.p.trim().length?argv.p:null
-  if (u === "" || p === ""){
+  let t = argv.t.trim().length?~~argv.t:null
+
+  if (u === "" || p === "" || !t){
     u = process.env['ESU_USERNAME']
     p = process.env['ESU_PASSWORD']
+    t = process.env['ESU_INTERVAL']
   }
 
-  if (!u || !p){
-    console.log(colors.red("specify username and password, use '-h' to see usage"));
+  if (!u || !p || !t){
+    console.log(colors.red("configure undefined, use '-h' to see usage"))
     return ;
   }
-
+  if (counter == 10){
+    console.log(colors.bgRed("retry times over the limit, program terminated."))
+    return ;
+  }
+  if (counter++){
+    console.log(counter, colors.red("connect lost, retrying..."))
+  }
   const s = await doLogin(u, p)
-  if (!s)
-  setTask(1)
-  // await utils.sleep(10000)
-  // await active()
-  // await utils.sleep(1000)
+  if (!s){
+    init()
+    return ;
+  }
+  counter = 0
+  setTask(~~t)
   // const d = await logout()
-  // console.log('logout >>> ', d);
 }
 
 +async function(){
