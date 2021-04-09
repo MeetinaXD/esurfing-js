@@ -1,9 +1,16 @@
+也许你需要 [简体中文文档](./README_sc.md)
+
 ## Esurfing Login
 Author: MeetinaXD
 
 Last Edit: Apri 9, 2021
 
 A three-party login script for `GuangDong esurfing` written by `JavaScript`
+
+## Features
+- Lighting fast login
+- Once configuring, easy use
+- Activate connection automatically
 
 ## Requirement
 The script is running in `Node.JS`
@@ -38,7 +45,7 @@ Configuring `username` `password` and `time interval` in `PATH`
 ``` shell
 # your student id
 export ESU_USERNAME=[USERNAME]
-# the last 6 digits of ID card number
+# the last 8 digits of ID card number
 export ESU_PASSWORD=[PASSWORD]
 # Time interval
 export ESU_INTERVAL=[INTERVAL]
