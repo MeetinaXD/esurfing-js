@@ -12,6 +12,7 @@ Maybe you need [English Version](./README.md)
 - 光速登录，比官方不知道高到哪里去了
 - 一次配置，终身受用
 - 自动保活，自动断线重连
+- 自动重新登录，适应自动断网
 
 
 ## 运行环境要求
@@ -35,7 +36,7 @@ npm i colors yargs axios md5-node qs
 ### 命令行配置模式
 用法
 ``` shell
-node ./main.js -u [USERNAME] -p [PASSWORD] -d -t [INTERVAL]
+node ./main.js -u [登录账号] -p [登录密码] -d -t [时间间隔]
 ```
 
 **举例**
@@ -47,11 +48,11 @@ node ./main.js -u 3119000000 -p 12345678 -d -t 3
 运行前需要在`PATH`中指定`登录帐号` `登录密码` 和 `激活时间间隔` ，用法如下
 ``` shell
 # 一般是你的学号
-export ESU_USERNAME=[USERNAME]
+export ESU_USERNAME=[登录帐号]
 # 身份证后8位
-export ESU_PASSWORD=[PASSWORD]
+export ESU_PASSWORD=[登录密码]
 # 时间间隔
-export ESU_INTERVAL=[INTERVAL]
+export ESU_INTERVAL=[激活时间间隔]
 node ./main.js
 ```
 

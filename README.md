@@ -11,6 +11,7 @@ A three-party login script for `GuangDong esurfing` written by `JavaScript`
 - Lighting fast login
 - Once configuring, easy use
 - Activate connection automatically
+- Re-login automatically
 
 ## Requirement
 The script is running in `Node.JS`
