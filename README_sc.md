@@ -20,7 +20,7 @@ Maybe you need [English Version](./README.md)
 在`Node.JS`安装完后，执行以下命令安装其余环境
 
 ``` shell
-npm i colors yargs axios md5-node
+npm i colors yargs axios md5-node qs
 ```
 
 ## 使用方法

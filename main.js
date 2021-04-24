@@ -12,14 +12,12 @@
  * Enjoy !
  */
 
-const axios = require("axios")
 const colors = require("colors");
 const utils = require("./utils")
 const es = require('./esurfing')
 
 const configure = new utils.Config("./config.json")
 let taskid = null
-let counter = 0
 
 const argv = require('yargs')
   .option('d', {
@@ -56,23 +54,22 @@ async function doLogin(username, password){
   const auto = true
 
   // if don't use automatic mode, please configure the value below
+
   let config = {
     mac: utils.getNetworkInfo().mac.toUpperCase().split(":").join("-"),
     nasip: "119.146.175.80",
     clientip: "100.2.48.127"
   }
 
+  if (configure.get().record){
+    config = { ...config, ...configure.get().record }
+  }
+
   if (auto){
     // get config automatically
     const redirectUrl = await utils.getRedirectUrl('http://www.baidu.com')
     if (!redirectUrl){
-      if (!configure.get().record){
-        console.log(colors.red('online, but no profile found! please disconnect first.'))
-        throw new Error("online but no connection.")
-      }
-
-      // online
-      return true
+      throw new Error("cannot get profile automatically")
     }
 
     // offline
@@ -84,9 +81,7 @@ async function doLogin(username, password){
   }
 
   const s = await es.login(username, password, config)
-
   if (~~s.rescode !== 0){
-    // throw new Error(s.resinfo)
     console.log(colors.bgRed(s.resinfo))
     return false
   }
@@ -109,7 +104,54 @@ function setTask(sec){
   console.log("keep connection will run " + colors.green(`every ${sec} mins.`))
 }
 
-async function init(){
+async function init(u, p, t){
+  let status = null
+  status = await es.networkCheck();
+
+  if (status === es.codes.networkStatus_unknownEnvironment){
+    throw new Error("unknown network environment")
+  }
+
+  if (status === es.codes.networkStatus_portal){
+    const d = await es.portalLogin(u, p)
+    console.log('portal login >>> ', d);
+  }
+
+  if (status === es.codes.networkStatus_OK){
+    if (!configure.get().record){
+      console.log(colors.red('online, but no profile found! please disconnect first.'))
+      throw new Error("online but no profile found.")
+    }
+
+    // 只有网络连接中需要断网
+    if (argv.d === true){
+      if (!(await es.logout())){
+        console.log(colors.red("logout return error!"))
+      }
+      // 断开后等待
+      await utils.sleep(10000)
+    }
+  }
+
+  status = await es.networkCheck();
+  if (status === es.codes.networkStatus_offline){
+    const s = await doLogin(u, p)
+    await utils.sleep(3000)
+    if (!s){
+      throw new Error("login failed")
+    }
+  }
+
+  status = await es.networkCheck();
+  if (status === es.codes.networkStatus_OK){
+    setTask(~~t)
+  } else {
+    throw new Error("unknown network environment")
+  }
+}
+
+// entry
++async function(){
   let u = argv.u.trim().length?argv.u:null
   let p = argv.p.trim().length?argv.p:null
   let t = argv.t?~~argv.t:null
@@ -124,64 +166,22 @@ async function init(){
     console.log(colors.red("configure undefined, use '-h' to see usage"))
     return ;
   }
-  if (counter == 10){
-    console.log(colors.bgRed("retry times over the limit, program terminated."))
-    return ;
-  }
-  if (counter !== 0){
-    console.log(counter, colors.red("connect lost, retrying..."))
-    await utils.sleep(10000)
-  }
-  const s = await doLogin(u, p)
-  // console.log('a >>> ', s);
 
-  if (!s){
-    counter++
-    init()
-    return ;
+  let retry = 0
+  while (++retry < 10){
+    try{
+      await init(u, p, t)
+      break ;
+    } catch(e) {
+      console.log(retry, colors.red("init failed, waiting for next retry."))
+      console.log('\terror message >>> ', e.message)
+      // 30 sec(s) waiting
+      await utils.sleep(30000)
+    }
   }
-  counter = 0
-  setTask(~~t)
-  // const d = await logout()
-}
-
-+async function(){
-  // check network environment
-  let a = await es.networkCheck();
-  if (a === es.codes.networkStatus_portal){
-    a = (await es.portalLogin("3119000592", "04102512")).data
+  if (retry > 10){
+    console.log(colors.red("program terminated after overtime's retry\n We will reset retry counter after 10 min."))
+    await utils.sleep(20 *60 *1000)
+    arguments.callee()
   }
-  console.log('ret >>> ', a);
-
-  // console.log(a, a === es.codes.networkStatus_portal)
-  return;
-  const s = (await axios.get("http://172.17.18.3:8080/portal/").catch(e => {
-    // console.log(e)
-  }))
-  const d = (await utils.getRedirectUrl("http://172.17.18.3:8080/portal/"))
-  //http://172.17.18.3:8080/portal/pws?t=li&ifEmailAuth=false
-  const url = 'http://172.17.18.3:8080/portal/pws?t=li&ifEmailAuth=false'
-  const r = (await axios.post(url, utils.constructLoginForm("1","2"))).data
-
-  console.log(utils.responseToJSON(r))
-  const exp = /((\d+\.){3}\d+)+/g
-  // if (s){
-  //   if (exp.test(s.host) || true) {
-  //     // needs byod login
-  //     const d = (await axios.get("http://172.17.18.2:8080/byod/index.xhtml"))
-  //     console.log('d >>> ', d);
-
-  //   }
-  // }
-  // // console.log('s >>> ', s);
-  return ;
-  if (argv.d === true){
-    await logout()
-  }
-  await utils.sleep(1000)
-  init()
 }()
-
-// console.log('ip >>> ', utils.getNetworkInfo());
-
-// http://2.2.2.2/

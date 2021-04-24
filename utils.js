@@ -64,7 +64,7 @@ axios.interceptors.response.use(e => e, async function(err){
 
 // axios.defaults.timeout = 3000
 
-
+// update in Apri. 24
 async function getRedirectUrl(url){
   // const url = "http://www.baidu.com"
   if (url.indexOf("http") === -1){
@@ -72,16 +72,11 @@ async function getRedirectUrl(url){
   }
   const exp = /((\d+\.){3}\d+)+/g
   let ret = null
-  try {
-    ret = await axios.get(url, { retry: 3, timeout: 3000 })
-  } catch (error) {
-    if (error.message === 'Timeout exceeded'){
-      return null
-    }
-  }
-  // console.log('ret >>> ', ret);
+  ret = await axios.get(url, { retry: 3, timeout: 10000 })
 
-  const { host, path } = ret.request
+  const host = ret.request.socket._host
+  const { path } = ret.request
+
   const ip = path.match(exp)
   if (url !== `http://${host}`){
     let res = { host, path }

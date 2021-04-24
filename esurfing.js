@@ -1,6 +1,8 @@
 const utils = require("./utils")
 const axios = require("axios")
 
+const configure = new utils.Config("./config.json")
+
 let portal = {
   address: null
 }
@@ -9,7 +11,8 @@ const codesName = [
   'networkStatus_OK',
   'networkStatus_offline',
   'networkStatus_portal',
-  'networkStatus_disconnect'
+  'networkStatus_disconnect',
+  'networkStatus_unknownEnvironment'
 ]
 const codes = {}
 
@@ -159,41 +162,47 @@ async function networkCheck(){
    * 2.根据重定向的地址确定状态
    */
   let ret = await utils.getNetworkInfo()
+  // 获取网卡信息
   if (!ret){
     return codes.networkStatus_disconnect
   }
-  let redirect = await utils.getRedirectUrl("http://www.baidu.com")
-  ret = (await axios.get("http://www.baidu.com", { retry: 3, timeout: 3000 })).data
+
+  // 判断是否正常联网
+  ret = (await axios.get("http://www.baidu.com", { retry: 3, timeout: 10000 })).data
   if (ret.indexOf("百度一下") !== -1){
     return codes.networkStatus_OK
   }
 
-  if (ret.indexOf("Portal") !== -1){
-    // need portal
-    redirect = await utils.getRedirectUrl("http://2.2.2.2")
+  let redirect = await utils.getRedirectUrl("http://2.2.2.2")
+  // console.log('re >>> ', redirect);
 
+  // 如果未重定向， 则网络环境未知
+  if (!redirect){
+    return codes.networkStatus_unknownEnvironment
+  }
+
+  // 被重定向到portal页面，需要portal登录
+  if (redirect.host.indexOf("portal") !== -1){
+    // 如果需要，获取登录连接
+    redirect = await utils.getRedirectUrl(redirect.host)
     if (!redirect){
       throw new Error("unknown error")
     }
-    portal.address = redirect.host
-    return codes.networkStatus_portal
+    if (redirect && redirect.host.indexOf("login") !== -1){
+      portal.address = redirect.host
+      return codes.networkStatus_portal
+    }
+    // 重定向的页面未包含login字段
+    return codes.networkStatus_unknownEnvironment
   }
-  if (redirect && redirect.host.indexOf("enet.10000.gd") !== -1){
+
+  // 被重定向到gd10000，则需要正常登录
+  if (redirect.host.indexOf("enet.10000.gd") !== -1){
     return codes.networkStatus_offline
   }
-  redirect = await utils.getRedirectUrl("http://2.2.2.2")
-  if (!redirect){
-    throw new Error("unknown error")
-  }
-  portal.address = redirect.host
-  redirect = await utils.getRedirectUrl(redirect.host)
-  if (!redirect){
-    throw new Error("unknown error")
-  }
-  if (ret && ret.host.indexOf("login") !== -1){
-    return codes.networkStatus_portal
-  }
-  return codes.networkStatus_OK
+
+  // 完美避开所有正确答案
+  return codes.networkStatus_unknownEnvironment
 }
 
 /**
