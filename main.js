@@ -1,5 +1,5 @@
 /**
- * Esurfing AutoLogin (nodejs)
+ * es AutoLogin (nodejs)
  * author: MeetinaXD
  * Last Edit: Apri 8, 2021.
  *
@@ -15,6 +15,7 @@
 const axios = require("axios")
 const colors = require("colors");
 const utils = require("./utils")
+const es = require('./esurfing')
 
 const configure = new utils.Config("./config.json")
 let taskid = null
@@ -51,135 +52,14 @@ const argv = require('yargs')
   })
   .argv
 
-/**
- * async getVerifyCode
- * @param {*} formData
- *            (require: username, clientip, nasip, mac, iswifi, timestamp, authKey)
- * @returns String verifyCode
- */
-async function getVerifyCode(formData){
-  const url = "http://enet.10000.gd.cn:10001/client/challenge"
-  const d = await axios.post(url, formData)
-  return d.data.challenge
-}
-
-/**
- * async login
- * do login with user info
- * @param {*} username (student id)
- * @param {*} password (the end 8 numbers of id)
- * @param {*} config (object, nasip, clientip and mac is required)
- * @returns Boolean, login result
- */
-async function login(username, password, config = null){
-  let formData = {
-    username,
-    password,
-    iswifi: "4060",
-    clientip: null, //wlanip
-    nasip: null, //nasip
-    authenticator: null,
-    mac: null,
-    verificationcode: "",
-    timestamp: 0
-  }
-  if (!config){
-    throw new Error("config not specify")
-  }
-  formData = {
-    ...formData,
-    ...config
-  }
-
-  formData.timestamp = new Date().getTime() + ''
-  // no need to add secret
-  let { clientip, nasip, mac, timestamp } = formData
-  formData.authenticator = utils.getHash([clientip, nasip, mac, timestamp])
-
-  const verifyCode = await getVerifyCode(formData)
-
-  // update and calc
-  formData.timestamp = new Date().getTime() + ''
-  timestamp = formData.timestamp
-  formData.authenticator = utils.getHash([clientip, nasip, mac, timestamp, verifyCode])
-
-  const url = "http://enet.10000.gd.cn:10001/client/login"
-  const d = await axios.post(url, formData)
-  const code = d.data.rescode
-
-  // login success
-  if (code && ~~code === 0){
-    configure.get().record = {
-      username,
-      mac: formData.mac,
-      nasip: formData.nasip,
-      wlanip: formData.clientip
-    }
-    configure.write()
-    return true
-  }
-  return false
-}
-
-/**
- * async logout
- * do logout
- * @returns Boolean, logout result
- *          (0: ok, 1: offine (needs relogin), 2: auth failed.)
- */
-async function logout(){
-  const { wlanip, nasip, mac } = configure.get().record
-  if (!(wlanip && nasip && mac)){
-    console.log('no record found, cannot disconnect');
-    return;
-  }
-  const url = "http://enet.10000.gd.cn:10001/client/logout"
-  let formData = {
-    clientip: wlanip, //wlanip
-    nasip: nasip, //nasip
-    authenticator: null,
-    mac: mac,
-    timestamp: new Date().getTime()
-  }
-  const timestamp = formData.timestamp
-  formData.authenticator = utils.getHash([wlanip, nasip, mac, timestamp])
-  const code = (await axios.post(url, formData)).data.rescode
-  return (code && ~~code === 0)
-}
-
-/**
- * async active
- * keep connection, call automatically by interval
- * return Number, actice status
- */
-async function active(){
-  const url = "http://enet.10000.gd.cn:8001/hbservice/client/active"
-  const t = new Date().getTime()
-  const { username, wlanip, nasip, mac } = configure.get().record
-  const params = {
-    username,
-    clientip: wlanip,
-    nasip,
-    mac,
-    timestamp: t,
-    authenticator: utils.getHash([wlanip, nasip, mac, t])
-  }
-  const code = (await axios.get(url, { params })).data.rescode
-
-  // 0 -- online
-  // 1 -- offline
-  // 2 -- auth failed
-  return code
-}
-
 async function doLogin(username, password){
   const auto = true
 
   // if don't use automatic mode, please configure the value below
   let config = {
     mac: utils.getNetworkInfo().mac.toUpperCase().split(":").join("-"),
-    nasip: "",
-    clientip: ""
+    nasip: "119.146.175.80",
+    clientip: "100.2.48.127"
   }
 
   if (auto){
@@ -203,17 +83,21 @@ async function doLogin(username, password){
     }
   }
 
-  const s = await login(username, password, config)
-  if (!s){
-    throw new Error("cannot login")
+  const s = await es.login(username, password, config)
+
+  if (~~s.rescode !== 0){
+    // throw new Error(s.resinfo)
+    console.log(colors.bgRed(s.resinfo))
+    return false
   }
   console.log(colors.bgGreen('login successfully'))
+  return true
 }
 
 function setTask(sec){
   taskid && clearInterval(taskid)
   taskid = setInterval(async function(){
-    const s = await active()
+    const s = await es.active()
     if (!s){
       taskid && clearInterval(taskid)
       // reconnect
@@ -228,7 +112,7 @@ function setTask(sec){
 async function init(){
   let u = argv.u.trim().length?argv.u:null
   let p = argv.p.trim().length?argv.p:null
-  let t = argv.t.trim().length?~~argv.t:null
+  let t = argv.t?~~argv.t:null
 
   if (u === "" || p === "" || !t){
     u = process.env['ESU_USERNAME']
@@ -244,11 +128,15 @@ async function init(){
     console.log(colors.bgRed("retry times over the limit, program terminated."))
     return ;
   }
-  if (counter++){
+  if (counter !== 0){
     console.log(counter, colors.red("connect lost, retrying..."))
+    await utils.sleep(10000)
   }
   const s = await doLogin(u, p)
+  // console.log('a >>> ', s);
+
   if (!s){
+    counter++
     init()
     return ;
   }
@@ -258,10 +146,42 @@ async function init(){
 }
 
 +async function(){
-  if (argv.d){
+  // check network environment
+  let a = await es.networkCheck();
+  if (a === es.codes.networkStatus_portal){
+    a = (await es.portalLogin("3119000592", "04102512")).data
+  }
+  console.log('ret >>> ', a);
+
+  // console.log(a, a === es.codes.networkStatus_portal)
+  return;
+  const s = (await axios.get("http://172.17.18.3:8080/portal/").catch(e => {
+    // console.log(e)
+  }))
+  const d = (await utils.getRedirectUrl("http://172.17.18.3:8080/portal/"))
+  //http://172.17.18.3:8080/portal/pws?t=li&ifEmailAuth=false
+  const url = 'http://172.17.18.3:8080/portal/pws?t=li&ifEmailAuth=false'
+  const r = (await axios.post(url, utils.constructLoginForm("1","2"))).data
+
+  console.log(utils.responseToJSON(r))
+  const exp = /((\d+\.){3}\d+)+/g
+  // if (s){
+  //   if (exp.test(s.host) || true) {
+  //     // needs byod login
+  //     const d = (await axios.get("http://172.17.18.2:8080/byod/index.xhtml"))
+  //     console.log('d >>> ', d);
+
+  //   }
+  // }
+  // // console.log('s >>> ', s);
+  return ;
+  if (argv.d === true){
     await logout()
   }
+  await utils.sleep(1000)
   init()
 }()
 
 // console.log('ip >>> ', utils.getNetworkInfo());
+
+// http://2.2.2.2/

@@ -18,7 +18,7 @@ The script is running in `Node.JS`
 You need to install `Node.JS` and run the following command
 
 ``` shell
-npm i colors yargs axios -S
+npm i colors yargs axios md5-node
 ```
 
 ## Usage
